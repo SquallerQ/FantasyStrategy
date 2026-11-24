@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://m8rumcnh74lq" path="res://Hero.tscn" id="2_0xm2m"]
 [ext_resource type="Texture2D" uid="uid://8d7lo4axk662" path="res://grass.png" id="2_1bvp3"]
 [ext_resource type="Texture2D" uid="uid://ssh4uj8rhw1t" path="res://water.png" id="3_1bvp3"]
+[ext_resource type="Script" uid="uid://bs5rrhcdcawfg" path="res://PathPreview.cs" id="5_7mycd"]
 [ext_resource type="Script" uid="uid://bt5yqxsqqbp1t" path="res://AdventureMap.cs" id="5_lquwl"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_lquwl"]
@@ -33,9 +34,16 @@ tile_map_data = PackedByteArray("AAABAAMAAAAAAAAAAAABAAQAAAAAAAAAAAACAAMAAAAAAAA
 tile_set = SubResource("TileSet_4kxuq")
 
 [node name="Hero" parent="." unique_id=1293491009 instance=ExtResource("2_0xm2m")]
+z_index = 2
 position = Vector2(48, 16)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=144355407]
 
 [node name="AdventureMap" type="Node" parent="." unique_id=959614286]
 script = ExtResource("5_lquwl")
+
+[node name="PathPreview" type="Line2D" parent="." unique_id=2047898936]
+z_index = 1
+width = 4.0
+antialiased = true
+script = ExtResource("5_7mycd")

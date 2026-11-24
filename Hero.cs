@@ -9,8 +9,16 @@ public partial class Hero : Node2D
 
   private bool _isMoving;
 
+  private PathPreview _pathPreview;
+
+  private Vector2I? _selectedCell;
+
+  private Vector2I[] _selectedPath = System.Array.Empty<Vector2I>();
+
   public override void _Ready()
   {
+    _pathPreview = GetParent().GetNode<PathPreview>("PathPreview");
+
     _ground = GetParent().GetNode<TileMapLayer>("Ground");
 
     Vector2 localPosition = _ground.ToLocal(GlobalPosition);
@@ -58,24 +66,20 @@ public partial class Hero : Node2D
   {
     if (@event is InputEventMouseButton mouseEvent)
     {
-      if (mouseEvent.ButtonIndex == MouseButton.Left && mouseEvent.Pressed)
-      {
-        if (_isMoving)
-          return;
+      if (!mouseEvent.Pressed || _isMoving)
+        return;
 
+      if (mouseEvent.ButtonIndex == MouseButton.Left)
+      {
         Vector2 mousePosition = GetGlobalMousePosition();
         Vector2 localPosition = _ground.ToLocal(mousePosition);
         Vector2I targetCell = _ground.LocalToMap(localPosition);
 
-        Vector2I[] path = _map.FindPath(_currentCell, targetCell);
-
-        if (path.Length == 0)
-        {
-          GD.Print("No path found");
-          return;
-        }
-
-        MoveAlongPath(path);
+        SelectDestination(targetCell);
+      }
+      else if (mouseEvent.ButtonIndex == MouseButton.Right)
+      {
+        ClearSelectedPath();
       }
 
       return;
@@ -102,7 +106,10 @@ public partial class Hero : Node2D
       direction = Vector2I.Right;
 
     if (direction != Vector2I.Zero)
+    {
+      ClearSelectedPath();
       TryMoveToCell(_currentCell + direction);
+    }
   }
 
   private void TryMoveToCell(Vector2I targetCell)
@@ -133,6 +140,47 @@ public partial class Hero : Node2D
   {
     Vector2 localPosition = _ground.MapToLocal(cell);
     GlobalPosition = _ground.ToGlobal(localPosition);
+  }
+
+
+  private void SelectDestination(Vector2I targetCell)
+  {
+    if (_isMoving)
+      return;
+
+    if (_selectedCell == targetCell)
+    {
+      Vector2I[] path = _selectedPath;
+
+      ClearSelectedPath();
+      MoveAlongPath(path);
+
+      return;
+    }
+
+    Vector2I[] newPath = _map.FindPath(
+        _currentCell,
+        targetCell
+    );
+
+    if (newPath.Length < 2)
+    {
+      ClearSelectedPath();
+      return;
+    }
+
+    _selectedCell = targetCell;
+    _selectedPath = newPath;
+
+    _pathPreview.ShowPath(newPath);
+  }
+
+  private void ClearSelectedPath()
+  {
+    _selectedCell = null;
+    _selectedPath = System.Array.Empty<Vector2I>();
+
+    _pathPreview.ClearPath();
   }
 
   public override void _Draw()
