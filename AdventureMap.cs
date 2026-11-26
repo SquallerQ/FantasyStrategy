@@ -26,7 +26,16 @@ public partial class AdventureMap : Node
     foreach (Vector2I cell in _ground.GetUsedCells())
     {
       if (!IsWalkable(cell))
+      {
         _pathfinder.SetPointSolid(cell, true);
+      }
+      else
+      {
+        _pathfinder.SetPointWeightScale(
+            cell,
+            GetMovementCost(cell)
+        );
+      }
     }
 
     Rect2I region = _pathfinder.Region;
@@ -59,5 +68,18 @@ public partial class AdventureMap : Node
       return System.Array.Empty<Vector2I>();
 
     return _pathfinder.GetIdPath(startCell, targetCell).ToArray();
+  }
+
+  public int GetMovementCost(Vector2I cell)
+  {
+    TileData tileData = _ground.GetCellTileData(cell);
+
+    if (tileData == null || !IsWalkable(cell))
+      return int.MaxValue;
+
+    return Mathf.Max(
+        1,
+        tileData.GetCustomData("movement_cost").AsInt32()
+    );
   }
 }

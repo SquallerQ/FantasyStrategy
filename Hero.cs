@@ -3,6 +3,19 @@ using Godot;
 
 public partial class Hero : Node2D
 {
+
+  [Signal]
+  public delegate void MovementPointsChangedEventHandler(
+    int current,
+    int maximum
+  );
+
+  public int MovementPoints => _movementPoints;
+
+  public int MaxMovementPoints => _maxMovementPoints;
+
+  public bool IsMoving => _isMoving;
+
   private TileMapLayer _ground;
   private Vector2I _currentCell;
   private AdventureMap _map;
@@ -15,8 +28,17 @@ public partial class Hero : Node2D
 
   private Vector2I[] _selectedPath = System.Array.Empty<Vector2I>();
 
+  [Export]
+  private int _maxMovementPoints = 10;
+
+  private int _movementPoints;
+
+  private TurnManager _turnManager;
+
   public override void _Ready()
   {
+    _movementPoints = _maxMovementPoints;
+
     _pathPreview = GetParent().GetNode<PathPreview>("PathPreview");
 
     _ground = GetParent().GetNode<TileMapLayer>("Ground");
@@ -27,7 +49,12 @@ public partial class Hero : Node2D
     MoveToCell(_currentCell);
 
     _map = GetParent().GetNode<AdventureMap>("AdventureMap");
+
+    _turnManager = GetParent().GetNode<TurnManager>("TurnManager");
+
+    _turnManager.DayChanged += OnDayChanged;
   }
+
 
 
   private async void MoveAlongPath(Vector2I[] path)
@@ -40,6 +67,17 @@ public partial class Hero : Node2D
     for (int i = 1; i < path.Length; i++)
     {
       Vector2I cell = path[i];
+
+      if (!_map.IsWalkable(cell))
+        break;
+
+      int cost = _map.GetMovementCost(cell);
+
+      if (_movementPoints < cost)
+      {
+        GD.Print("Not enough movement points");
+        break;
+      }
 
       Vector2 localPosition = _ground.MapToLocal(cell);
       Vector2 targetPosition = _ground.ToGlobal(localPosition);
@@ -56,6 +94,10 @@ public partial class Hero : Node2D
       await ToSignal(tween, Tween.SignalName.Finished);
 
       _currentCell = cell;
+      _movementPoints -= cost;
+      NotifyMovementPointsChanged();
+
+      GD.Print($"Movement points: {_movementPoints}/{_maxMovementPoints}");
     }
 
     _isMoving = false;
@@ -64,6 +106,13 @@ public partial class Hero : Node2D
 
   public override void _UnhandledInput(InputEvent @event)
   {
+
+    if (@event.IsActionPressed("restore_movement"))
+    {
+      RestoreMovementPoints();
+      return;
+    }
+
     if (@event is InputEventMouseButton mouseEvent)
     {
       if (!mouseEvent.Pressed || _isMoving)
@@ -116,24 +165,20 @@ public partial class Hero : Node2D
   {
     Vector2I difference = targetCell - _currentCell;
 
-    int distance = Mathf.Abs(difference.X) + Mathf.Abs(difference.Y);
+    int distance = Mathf.Abs(difference.X)
+                 + Mathf.Abs(difference.Y);
 
     if (distance != 1)
-    {
-      GD.Print("Select an adjacent cell");
       return;
-    }
 
     if (!_map.IsWalkable(targetCell))
-    {
-      GD.Print("Cannot move: terrain is blocked");
       return;
-    }
 
-    _currentCell = targetCell;
-    MoveToCell(_currentCell);
-
-    GD.Print($"Hero moved to cell: {_currentCell}");
+    MoveAlongPath(new Vector2I[]
+    {
+        _currentCell,
+        targetCell
+    });
   }
 
   private void MoveToCell(Vector2I cell)
@@ -187,5 +232,37 @@ public partial class Hero : Node2D
   {
     DrawCircle(Vector2.Zero, 24, Colors.Gold);
     DrawCircle(Vector2.Zero, 20, Colors.RoyalBlue);
+  }
+
+  public void RestoreMovementPoints()
+  {
+    if (_isMoving)
+      return;
+
+    _movementPoints = _maxMovementPoints;
+
+    NotifyMovementPointsChanged();
+
+    GD.Print($"Movement points restored: {_movementPoints}");
+  }
+
+  private void OnDayChanged(int day)
+  {
+    RestoreMovementPoints();
+    ClearSelectedPath();
+  }
+
+  public override void _ExitTree()
+  {
+    _turnManager.DayChanged -= OnDayChanged;
+  }
+
+  private void NotifyMovementPointsChanged()
+  {
+    EmitSignal(
+        SignalName.MovementPointsChanged,
+        _movementPoints,
+        _maxMovementPoints
+    );
   }
 }
